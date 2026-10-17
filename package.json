@@ -18,6 +18,9 @@
     "node": ">=22.0.0 <23.0.0",
     "npm": ">=10.0.0"
   },
+  "overrides": {
+    "source-map-js": "^1.2.2"
+  },
   "author": "",
   "license": "Apache-2.0"
 }

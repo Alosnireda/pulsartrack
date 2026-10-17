@@ -1,9 +1,9 @@
 #![cfg(test)]
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events as _, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env, String,
+    Address, Env, FromVal, IntoVal, String,
 };
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -304,6 +304,17 @@ fn test_settle_auction_with_winner() {
 
     client.settle_auction(&publisher, &auction_id);
 
+    let (event_contract, event_topics, event_data) = env.events().all().last().unwrap();
+    assert_eq!(event_contract, client.address);
+    assert_eq!(
+        event_topics,
+        (symbol_short!("auction"), symbol_short!("settle")).into_val(&env)
+    );
+    assert_eq!(
+        <(u64, Option<Address>, Option<i128>)>::from_val(&env, &event_data),
+        (auction_id, Some(bidder.clone()), Some(3_000i128))
+    );
+
     let auction = client.get_auction(&auction_id).unwrap();
     assert!(matches!(auction.status, AuctionStatus::Settled));
 
@@ -348,6 +359,17 @@ fn test_settle_auction_below_reserve_cancelled() {
     });
 
     client.settle_auction(&publisher, &auction_id);
+
+    let (event_contract, event_topics, event_data) = env.events().all().last().unwrap();
+    assert_eq!(event_contract, client.address);
+    assert_eq!(
+        event_topics,
+        (symbol_short!("auction"), symbol_short!("settle")).into_val(&env)
+    );
+    assert_eq!(
+        <(u64, Option<Address>, Option<i128>)>::from_val(&env, &event_data),
+        (auction_id, Some(bidder.clone()), Some(1_500i128))
+    );
 
     let auction = client.get_auction(&auction_id).unwrap();
     assert!(matches!(auction.status, AuctionStatus::Cancelled));
