@@ -153,7 +153,11 @@ impl MultisigTreasuryContract {
         tx_id
     }
 
-    pub fn approve_transaction(env: Env, signer: Address, tx_id: u64) {
+    /// Approves a pending transaction.
+    ///
+    /// Returns `false` when the transaction has expired. Expiry is a successful
+    /// state transition (rather than a panic) so the `Expired` status commits.
+    pub fn approve_transaction(env: Env, signer: Address, tx_id: u64) -> bool {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
@@ -196,7 +200,7 @@ impl MultisigTreasuryContract {
                 PERSISTENT_LIFETIME_THRESHOLD,
                 PERSISTENT_BUMP_AMOUNT,
             );
-            panic!("tx expired");
+            return false;
         }
 
         tx.approvals += 1;
@@ -224,9 +228,15 @@ impl MultisigTreasuryContract {
             (symbol_short!("tx"), symbol_short!("approved")),
             (tx_id, signer),
         );
+
+        true
     }
 
-    pub fn execute_transaction(env: Env, caller: Address, tx_id: u64) {
+    /// Executes an approved transaction.
+    ///
+    /// Returns `false` when the transaction has expired. Expiry is persisted
+    /// without panicking so callers and indexers can observe the final status.
+    pub fn execute_transaction(env: Env, caller: Address, tx_id: u64) -> bool {
         Self::require_not_paused(&env);
         env.storage()
             .instance()
@@ -250,8 +260,14 @@ impl MultisigTreasuryContract {
 
         if env.ledger().timestamp() > tx.expires_at {
             tx.status = TxStatus::Expired;
-            env.storage().persistent().set(&DataKey::Tx(tx_id), &tx);
-            panic!("transaction expired");
+            let ttl_key = DataKey::Tx(tx_id);
+            env.storage().persistent().set(&ttl_key, &tx);
+            env.storage().persistent().extend_ttl(
+                &ttl_key,
+                PERSISTENT_LIFETIME_THRESHOLD,
+                PERSISTENT_BUMP_AMOUNT,
+            );
+            return false;
         }
 
         let token_client = token::Client::new(&env, &tx.token);
@@ -275,6 +291,8 @@ impl MultisigTreasuryContract {
             (symbol_short!("treasury"), symbol_short!("executed")),
             (tx_id, tx.amount),
         );
+
+        true
     }
 
     pub fn reject_transaction(env: Env, signer: Address, tx_id: u64) {

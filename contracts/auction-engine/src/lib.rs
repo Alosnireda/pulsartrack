@@ -342,7 +342,7 @@ impl AuctionEngineContract {
 
             if auction.status == AuctionStatus::Settled {
                 token_client.transfer(&env.current_contract_address(), &auction.publisher, &amount);
-            } else if let Some(voter_addr) = winner {
+            } else if let Some(voter_addr) = winner.clone() {
                 // Refund because reserve price was not met
                 token_client.transfer(&env.current_contract_address(), &voter_addr, &amount);
                 env.storage()
@@ -361,7 +361,7 @@ impl AuctionEngineContract {
 
         env.events().publish(
             (symbol_short!("auction"), symbol_short!("settle")),
-            (auction_id, auction.winner, auction.winning_bid),
+            (auction_id, winner, winning),
         );
     }
 

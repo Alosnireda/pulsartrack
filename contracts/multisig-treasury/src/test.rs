@@ -293,7 +293,6 @@ fn test_approve_by_non_signer() {
 }
 
 #[test]
-#[should_panic(expected = "tx expired")]
 fn test_approve_expired_transaction() {
     let env = Env::default();
     env.mock_all_auths();
@@ -316,7 +315,10 @@ fn test_approve_expired_transaction() {
         li.timestamp = 200;
     });
 
-    client.approve_transaction(&signer2, &tx_id);
+    assert!(!client.approve_transaction(&signer2, &tx_id));
+
+    let tx = client.get_transaction(&tx_id).unwrap();
+    assert!(matches!(tx.status, TxStatus::Expired));
 }
 
 // ─── execute_transaction ─────────────────────────────────────────────────────
@@ -385,6 +387,40 @@ fn test_execute_pending_transaction() {
 
     // Not yet approved → should panic
     client.execute_transaction(&proposer, &tx_id);
+}
+
+#[test]
+fn test_execute_expired_transaction_persists_expired_status() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, signers, _, token_addr) = setup(&env);
+
+    let proposer = signers.get(0).unwrap();
+    let signer2 = signers.get(1).unwrap();
+    let signer3 = signers.get(2).unwrap();
+    let recipient = Address::generate(&env);
+    mint(&env, &token_addr, &client.address, 10_000);
+
+    let tx_id = client.propose_transaction(
+        &proposer,
+        &recipient,
+        &token_addr,
+        &10_000i128,
+        &make_desc(&env),
+        &100u64,
+    );
+    client.approve_transaction(&signer2, &tx_id);
+    client.approve_transaction(&signer3, &tx_id);
+
+    env.ledger().with_mut(|li| li.timestamp = 200);
+
+    assert!(!client.execute_transaction(&proposer, &tx_id));
+    let tx = client.get_transaction(&tx_id).unwrap();
+    assert!(matches!(tx.status, TxStatus::Expired));
+
+    let tc = TokenClient::new(&env, &token_addr);
+    assert_eq!(tc.balance(&recipient), 0);
+    assert_eq!(tc.balance(&client.address), 10_000);
 }
 
 // ─── reject_transaction ─────────────────────────────────────────────────────

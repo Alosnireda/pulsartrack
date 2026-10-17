@@ -133,7 +133,7 @@ describe('soroban-client', () => {
       const result = toAddressScVal(VALID_ACCOUNT);
 
       expect(result).toBeInstanceOf(xdr.ScVal);
-      expect(result.switch()).toBe(xdr.ScValType.scvAddress());
+      expect(result.type).toBe('scvAddress');
       expect(Address.fromScVal(result).toString()).toBe(VALID_ACCOUNT);
       expect(scValToNative(result)).toBe(VALID_ACCOUNT);
     });
@@ -149,8 +149,9 @@ describe('soroban-client', () => {
       const result = toU64ScVal(42);
 
       expect(result).toBeInstanceOf(xdr.ScVal);
-      expect(result.switch()).toBe(xdr.ScValType.scvU64());
-      expect(result.u64().toString()).toBe('42');
+      expect(result.type).toBe('scvU64');
+      if (result.type !== 'scvU64') throw new Error('expected u64 ScVal');
+      expect(result.u64.toString()).toBe('42');
       expect(scValToNative(result)).toBe(BigInt(42));
     });
 
@@ -159,7 +160,7 @@ describe('soroban-client', () => {
       const big = BigInt('18446744073709551615'); // u64 max
       const result = toU64ScVal(big);
 
-      expect(result.switch()).toBe(xdr.ScValType.scvU64());
+      expect(result.type).toBe('scvU64');
       expect(scValToNative(result)).toBe(big);
     });
   });
