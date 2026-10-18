@@ -244,7 +244,6 @@ fn test_execute_wrong_executor() {
 }
 
 #[test]
-#[should_panic(expected = "grace period expired")]
 fn test_execute_after_grace_period() {
     let env = Env::default();
     env.mock_all_auths();
@@ -266,7 +265,10 @@ fn test_execute_after_grace_period() {
         li.timestamp = 500 + 172_800 + 1;
     });
 
-    client.execute(&executor, &entry_id);
+    assert!(!client.execute(&executor, &entry_id));
+
+    let entry = client.get_entry(&entry_id).unwrap();
+    assert!(matches!(entry.status, TimelockStatus::Expired));
 }
 
 // ─── cancel ──────────────────────────────────────────────────────────────────

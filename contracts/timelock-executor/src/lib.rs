@@ -190,7 +190,7 @@ impl TimelockExecutorContract {
         entry_id
     }
 
-    pub fn execute(env: Env, executor: Address, entry_id: u64) {
+    pub fn execute(env: Env, executor: Address, entry_id: u64) -> bool {
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
@@ -242,7 +242,7 @@ impl TimelockExecutorContract {
                 PERSISTENT_LIFETIME_THRESHOLD,
                 PERSISTENT_BUMP_AMOUNT,
             );
-            panic!("grace period expired");
+            return false;
         }
 
         // CEI: update state before external call to prevent re-entrancy
@@ -267,6 +267,8 @@ impl TimelockExecutorContract {
             (symbol_short!("timelock"), symbol_short!("executed")),
             entry_id,
         );
+
+        true
     }
 
     pub fn cancel(env: Env, admin: Address, entry_id: u64) {
