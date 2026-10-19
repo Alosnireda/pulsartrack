@@ -261,6 +261,22 @@ impl BudgetOptimizerContract {
             .expect("allocation not found");
 
         let current_day = env.ledger().timestamp() / 86_400;
+        let effective_spent_today = if current_day > allocation.last_reset_day {
+            0
+        } else {
+            allocation.spent_today
+        };
+
+        // Issue #1121: Enforce budget caps before recording spend
+        // Check if the proposed spend would exceed daily or total budget
+        if effective_spent_today + amount > allocation.daily_budget {
+            panic!("spend would exceed daily budget");
+        }
+        if allocation.spent_total + amount > allocation.total_budget {
+            panic!("spend would exceed total budget");
+        }
+
+        // Reset daily counter if we're on a new day
         if current_day > allocation.last_reset_day {
             allocation.spent_today = 0;
             allocation.last_reset_day = current_day;
