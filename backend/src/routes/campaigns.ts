@@ -76,6 +76,11 @@ router.post('/', requireAuth, rateLimitWrite(), validate({
     if (!address) return; // Response already sent with 401
 
     const { title, contentId, budgetStroops, dailyBudgetStroops } = req.body;
+    if (dailyBudgetStroops > budgetStroops) {
+      return res.status(400).json({
+        error: 'dailyBudgetStroops must not exceed budgetStroops',
+      });
+    }
 
     const campaign = await campaignsRepo.create({
       advertiser: address,

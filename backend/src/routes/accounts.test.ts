@@ -54,4 +54,14 @@ describe('GET /api/account/:address', () => {
         expect(response.body).toHaveProperty('error', 'Failed to fetch account details');
         expect(response.body).not.toHaveProperty('details');
     });
+
+    it.each(['0', '-5'])('clamps limit=%s to one transaction', async (limit) => {
+        (horizon.getAccountTransactions as any).mockResolvedValue({ records: [] });
+
+        const response = await request(app)
+            .get(`/api/account/${mockAddress}/transactions?limit=${limit}`);
+
+        expect(response.status).toBe(200);
+        expect(horizon.getAccountTransactions).toHaveBeenCalledWith(mockAddress, 1, undefined, 'desc');
+    });
 });
