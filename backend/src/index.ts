@@ -12,7 +12,7 @@ import { EnvValidationError, loadEnv } from "./config/env";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./db/migrate";
 
-const PORT = parseInt(process.env.PORT || "4000", 10);
+const PORT = parseInt(process.env.PORT || "3001", 10);
 
 const server = createServer(app);
 

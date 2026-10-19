@@ -99,6 +99,12 @@ router.post(
 
       res.status(201).json(publisher);
     } catch (err: any) {
+      // #1100 — handle unique-constraint race: two concurrent registrations
+      // for the same address both pass findByAddress, then one insert fails
+      // with Prisma P2002. Return 409 instead of generic 500.
+      if (err?.code === "P2002") {
+        return res.status(409).json({ error: "Publisher already registered" });
+      }
       req.log?.error({ err }, "Failed to register publisher");
       const details =
         process.env.NODE_ENV === "development" ? err.message : undefined;
