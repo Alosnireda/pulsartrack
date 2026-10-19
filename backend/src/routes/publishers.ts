@@ -34,19 +34,21 @@ router.get(
         lastActivity: r.lastActivity,
       }));
 
-      if (result.length > 0 && CONTRACT_IDS.PUBLISHER_REPUTATION) {
-        try {
-          const onChainScore = await callReadOnly(
-            CONTRACT_IDS.PUBLISHER_REPUTATION,
-            "get_reputation",
-            [toAddressScVal(result[0].address)],
-          );
-          if (onChainScore != null) {
-            result[0].reputationScore = onChainScore;
+      if (CONTRACT_IDS.PUBLISHER_REPUTATION) {
+        await Promise.all(result.map(async (publisher) => {
+          try {
+            const onChainScore = await callReadOnly(
+              CONTRACT_IDS.PUBLISHER_REPUTATION,
+              "get_reputation",
+              [toAddressScVal(publisher.address)],
+            );
+            if (onChainScore != null) {
+              publisher.reputationScore = onChainScore;
+            }
+          } catch {
+            // On-chain enrichment is best-effort per publisher.
           }
-        } catch {
-          // On-chain enrichment is best-effort
-        }
+        }));
       }
 
       res.json({ publishers: result });
