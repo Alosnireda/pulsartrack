@@ -321,6 +321,7 @@ impl EscrowVaultContract {
 
     /// Approve escrow release
     pub fn approve_release(env: Env, approver: Address, escrow_id: u64) {
+        Self::require_not_paused(&env);
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
