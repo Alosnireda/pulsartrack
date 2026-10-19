@@ -50,7 +50,15 @@ export function CampaignCard({ campaign, onSelect }: CampaignCardProps) {
         'bg-gray-800 border border-gray-700 rounded-xl p-4 transition-all',
         onSelect && 'cursor-pointer hover:border-indigo-500 hover:bg-gray-750'
       )}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
       onClick={() => onSelect?.(campaign)}
+      onKeyDown={(e) => {
+        if (onSelect && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onSelect(campaign);
+        }
+      }}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
