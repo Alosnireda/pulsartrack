@@ -372,6 +372,8 @@ fn test_verify_view_without_proof() {
     let result = client.verify_view(&1u64, &publisher, &viewer, &None);
     assert!(!result);
     assert_eq!(client.get_verification_stats(&1u64).rejected_views, 1);
+    let lifecycle_client = mocks::CampaignLifecycleContractClient::new(&env, &lifecycle);
+    assert_eq!(lifecycle_client.paused_campaign(), Some(1u64));
 }
 
 #[test]
