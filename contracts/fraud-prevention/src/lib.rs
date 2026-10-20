@@ -257,10 +257,9 @@ impl FraudPreventionContract {
             (campaign_id, publisher, verified),
         );
 
-        if !verified {
-            panic!("verification failed");
-        }
-        true
+        // Return a rejection instead of panicking so the deduplication record,
+        // rate-limit counter, and verification cache commit for failed views.
+        verified
     }
 
     /// Flag suspicious publisher activity
@@ -477,10 +476,9 @@ impl FraudPreventionContract {
         _publisher: &Address,
         proof_data: &Option<BytesN<32>>,
     ) -> u32 {
-        let base_score: u32 = 80;
-        let proof_bonus: u32 = if proof_data.is_some() { 10 } else { 0 };
-
-        let score = base_score + proof_bonus;
+        // A view without proof is a strong fraud signal; a valid proof earns
+        // the high score. This makes the fraud-pause path reachable.
+        let score: u32 = if proof_data.is_some() { 90 } else { 40 };
 
         // If score is very low, trigger campaign pause
         if score < 50 {
