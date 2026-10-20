@@ -532,7 +532,13 @@ pub(crate) mod mocks {
     pub struct CampaignLifecycleContract;
     #[contractimpl]
     impl CampaignLifecycleContract {
-        pub fn pause_for_fraud(_env: Env, _fraud_contract: Address, _campaign_id: u64) {}
+        pub fn pause_for_fraud(env: Env, _fraud_contract: Address, campaign_id: u64) {
+            env.storage().instance().set(&symbol_short!("paused"), &campaign_id);
+        }
+
+        pub fn paused_campaign(env: Env) -> Option<u64> {
+            env.storage().instance().get(&symbol_short!("paused"))
+        }
     }
 
     #[contract]
