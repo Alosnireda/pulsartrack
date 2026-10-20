@@ -69,7 +69,7 @@ fn test_set_dependent_contracts() {
     env.mock_all_auths();
     let (client, admin) = setup(&env);
 
-    let lifecycle = Address::generate(&env);
+    let lifecycle = env.register(mocks::CampaignLifecycleContract, ());
     let network = Address::generate(&env);
     let vault = Address::generate(&env);
 
@@ -367,9 +367,11 @@ fn test_verify_view_without_proof() {
     let vault = Address::generate(&env);
     client.set_dependent_contracts(&admin, &lifecycle, &network, &vault);
 
-    // base_score = 80, no proof bonus → 80 >= 80 → verified
+    // Missing proof scores below the default threshold and is rejected.
+    // The lifecycle mock is configured so the low-score fraud-pause call succeeds.
     let result = client.verify_view(&1u64, &publisher, &viewer, &None);
-    assert!(result);
+    assert!(!result);
+    assert_eq!(client.get_verification_stats(&1u64).rejected_views, 1);
 }
 
 #[test]
@@ -482,4 +484,26 @@ fn test_duplicate_view_same_triplet_rejected() {
         li.timestamp += 1;
     });
     client.verify_view(&1u64, &publisher, &viewer, &None);
+}
+
+
+#[test]
+#[should_panic(expected = "duplicate view")]
+fn test_failed_view_retry_is_deduplicated() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin) = setup(&env);
+    let publisher = Address::generate(&env);
+    let viewer = Address::generate(&env);
+    let lifecycle = env.register(mocks::CampaignLifecycleContract, ());
+    let network = Address::generate(&env);
+    let vault = Address::generate(&env);
+    client.set_dependent_contracts(&admin, &lifecycle, &network, &vault);
+
+    // First failed verification returns false but commits the dedup/rate/cache writes.
+    assert!(!client.verify_view(&77u64, &publisher, &viewer, &None));
+    assert_eq!(client.get_verification_stats(&77u64).rejected_views, 1);
+
+    // Retrying the identical triplet must hit the persisted duplicate guard.
+    client.verify_view(&77u64, &publisher, &viewer, &None);
 }
