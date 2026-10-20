@@ -134,6 +134,18 @@ router.post(
         return res.status(400).json({ error: "Bid below floor price" });
       }
 
+      // Verify bid strictly exceeds the current highest bid (ascending-bid rule)
+      const highestBidResult = await client.query(
+        `SELECT COALESCE(MAX(amount_stroops), -1) AS highest_bid
+         FROM bids WHERE auction_id = $1 FOR UPDATE`,
+        [auctionId],
+      );
+      const currentHighest = Number(highestBidResult.rows[0].highest_bid);
+      if (amountStroops <= currentHighest) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Bid too low" });
+      }
+
       // Verify campaign belongs to the bidder
       const campaignResult = await client.query(
         `SELECT advertiser FROM campaigns WHERE campaign_id = $1`,
