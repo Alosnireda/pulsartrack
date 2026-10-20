@@ -88,7 +88,7 @@ export function PublisherCard({ publisher, rank, onSelect }: PublisherCardProps)
         <div>
           <p className="text-xs text-gray-500">Earnings</p>
           <p className="text-green-400 font-medium text-sm">
-            {formatXlm(publisher.earnings_total)} XLM
+            {formatXlm(publisher.earnings_total)}
           </p>
         </div>
       </div>
