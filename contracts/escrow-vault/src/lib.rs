@@ -467,7 +467,11 @@ impl EscrowVaultContract {
 
         escrow.locked_amount -= amount;
         escrow.released_amount += amount;
-        escrow.state = EscrowState::PartiallyReleased;
+        escrow.state = if escrow.locked_amount == 0 {
+            EscrowState::Released
+        } else {
+            EscrowState::PartiallyReleased
+        };
 
         let _ttl_key = DataKey::Escrow(escrow_id);
         env.storage().persistent().set(&_ttl_key, &escrow);
