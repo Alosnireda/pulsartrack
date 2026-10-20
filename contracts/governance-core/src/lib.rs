@@ -110,6 +110,7 @@ impl GovernanceCoreContract {
         };
 
         let _ttl_key = DataKey::RoleGrant(account.clone(), role.clone());
+        let is_new_grant = !env.storage().persistent().has(&_ttl_key);
         env.storage().persistent().set(&_ttl_key, &grant);
         env.storage().persistent().extend_ttl(
             &_ttl_key,
@@ -117,14 +118,16 @@ impl GovernanceCoreContract {
             PERSISTENT_BUMP_AMOUNT,
         );
 
-        let count: u32 = env
-            .storage()
-            .instance()
-            .get(&DataKey::RoleCount(role.clone()))
-            .unwrap_or(0);
-        env.storage()
-            .instance()
-            .set(&DataKey::RoleCount(role), &(count + 1));
+        if is_new_grant {
+            let count: u32 = env
+                .storage()
+                .instance()
+                .get(&DataKey::RoleCount(role.clone()))
+                .unwrap_or(0);
+            env.storage()
+                .instance()
+                .set(&DataKey::RoleCount(role), &(count + 1));
+        }
 
         env.events()
             .publish((symbol_short!("role"), symbol_short!("granted")), account);
