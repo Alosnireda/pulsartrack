@@ -388,7 +388,8 @@ fn test_verification_stats_updated() {
     let vault = Address::generate(&env);
     client.set_dependent_contracts(&admin, &lifecycle, &network, &vault);
 
-    client.verify_view(&1u64, &publisher, &viewer, &None);
+    let proof = BytesN::from_array(&env, &[2u8; 32]);
+    assert!(client.verify_view(&1u64, &publisher, &viewer, &Some(proof)));
 
     let stats = client.get_verification_stats(&1u64);
     assert_eq!(stats.total_views, 1);
@@ -452,14 +453,16 @@ fn test_duplicate_view_prevention_same_campaign() {
     let vault = Address::generate(&env);
     client.set_dependent_contracts(&admin, &lifecycle, &network, &vault);
 
+    let proof = BytesN::from_array(&env, &[3u8; 32]);
+
     // Initial verify
-    assert!(client.verify_view(&1u64, &publisher1, &viewer1, &None));
+    assert!(client.verify_view(&1u64, &publisher1, &viewer1, &Some(proof.clone())));
 
     // Same campaign, different viewer — distinct triplet, allowed
-    assert!(client.verify_view(&1u64, &publisher1, &viewer2, &None));
+    assert!(client.verify_view(&1u64, &publisher1, &viewer2, &Some(proof.clone())));
 
     // Same campaign, different publisher — distinct triplet, allowed
-    assert!(client.verify_view(&1u64, &publisher2, &viewer1, &None));
+    assert!(client.verify_view(&1u64, &publisher2, &viewer1, &Some(proof)));
 }
 
 #[test]
