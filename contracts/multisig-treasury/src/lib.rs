@@ -298,6 +298,7 @@ impl MultisigTreasuryContract {
     }
 
     pub fn reject_transaction(env: Env, signer: Address, tx_id: u64) {
+        Self::require_not_paused(&env);
         env.storage()
             .instance()
             .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);

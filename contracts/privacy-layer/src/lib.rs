@@ -29,7 +29,7 @@ pub struct AnonymousSegmentProof {
     pub zkp_hash: BytesN<32>, // zero-knowledge proof hash
     pub verified: bool,
     pub created_at: u64,
-    pub signature: Option<BytesN<64>>, // verifier's signature over verified statement
+    pub signature: Option<BytesN<64>>, // ed25519 signature by VerifierKey over proof_id
 }
 
 #[contracttype]
@@ -47,7 +47,8 @@ pub struct DataRequest {
 pub enum DataKey {
     Admin,
     PendingAdmin,
-    Verifier, // Trusted ZKP verifier address
+    Verifier,    // Trusted ZKP verifier address
+    VerifierKey, // ed25519 public key that signs verified proof_ids
     RequestCounter,
     Consent(Address),
     Proof(BytesN<32>),
@@ -92,6 +93,23 @@ impl PrivacyLayerContract {
             panic!("unauthorized");
         }
         env.storage().instance().set(&DataKey::Verifier, &verifier);
+    }
+
+    /// Sets the ed25519 public key whose signature over `proof_id` is required
+    /// by `verify_zkp`. Kept separate from the verifier `Address` because an
+    /// account's master key is not guaranteed to be one of its signers.
+    pub fn set_verifier_key(env: Env, admin: Address, public_key: BytesN<32>) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        admin.require_auth();
+        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        if admin != stored_admin {
+            panic!("unauthorized");
+        }
+        env.storage()
+            .instance()
+            .set(&DataKey::VerifierKey, &public_key);
     }
 
     pub fn set_consent(
@@ -230,6 +248,15 @@ impl PrivacyLayerContract {
             .persistent()
             .get(&DataKey::Proof(proof_id.clone()))
             .expect("proof not found");
+
+        let verifier_key: BytesN<32> = env
+            .storage()
+            .instance()
+            .get(&DataKey::VerifierKey)
+            .expect("verifier key not set");
+        // Panics (aborting the call) if the signature is invalid.
+        env.crypto()
+            .ed25519_verify(&verifier_key, &proof_id.clone().into(), &signature);
 
         proof.verified = true;
         proof.signature = Some(signature);

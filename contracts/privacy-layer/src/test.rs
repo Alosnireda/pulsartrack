@@ -1,5 +1,6 @@
 #![cfg(test)]
 use super::*;
+use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
 
 fn setup(env: &Env) -> (PrivacyLayerContractClient<'_>, Address) {
@@ -8,6 +9,23 @@ fn setup(env: &Env) -> (PrivacyLayerContractClient<'_>, Address) {
     let c = PrivacyLayerContractClient::new(env, &id);
     c.initialize(&admin);
     (c, admin)
+}
+
+fn sign(env: &Env, key: &SigningKey, proof_id: &BytesN<32>) -> BytesN<64> {
+    BytesN::from_array(env, &key.sign(&proof_id.to_array()).to_bytes())
+}
+
+fn setup_verifier_key(
+    env: &Env,
+    c: &PrivacyLayerContractClient<'_>,
+    admin: &Address,
+) -> SigningKey {
+    let key = SigningKey::from_bytes(&[7u8; 32]);
+    c.set_verifier_key(
+        admin,
+        &BytesN::from_array(env, &key.verifying_key().to_bytes()),
+    );
+    key
 }
 fn s(env: &Env, v: &str) -> String {
     String::from_str(env, v)
@@ -84,14 +102,51 @@ fn test_verify_zkp() {
     let env = Env::default();
     env.mock_all_auths();
     let (c, admin) = setup(&env);
+    let key = setup_verifier_key(&env, &c, &admin);
     let user = Address::generate(&env);
     let zkp_hash = BytesN::from_array(&env, &[2u8; 32]);
     let proof_id = c.submit_zkp(&user, &s(&env, "1,2,3"), &zkp_hash);
-    let sig = BytesN::from_array(&env, &[1u8; 64]);
+    let sig = sign(&env, &key, &proof_id);
     c.verify_zkp(&admin, &proof_id, &sig);
     let proof = c.get_proof(&proof_id).unwrap();
     assert!(proof.verified);
     assert_eq!(proof.signature, Some(sig));
+}
+
+#[test]
+fn test_verify_zkp_rejects_invalid_signature() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    setup_verifier_key(&env, &c, &admin);
+    let user = Address::generate(&env);
+    let zkp_hash = BytesN::from_array(&env, &[2u8; 32]);
+    let proof_id = c.submit_zkp(&user, &s(&env, "1,2,3"), &zkp_hash);
+
+    // Valid signature from a key other than the configured verifier key.
+    let rogue = SigningKey::from_bytes(&[9u8; 32]);
+    let forged = sign(&env, &rogue, &proof_id);
+    assert!(c.try_verify_zkp(&admin, &proof_id, &forged).is_err());
+
+    // Arbitrary bytes are rejected too.
+    let garbage = BytesN::from_array(&env, &[1u8; 64]);
+    assert!(c.try_verify_zkp(&admin, &proof_id, &garbage).is_err());
+
+    let proof = c.get_proof(&proof_id).unwrap();
+    assert!(!proof.verified);
+    assert_eq!(proof.signature, None);
+}
+
+#[test]
+#[should_panic(expected = "verifier key not set")]
+fn test_verify_zkp_requires_verifier_key() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, admin) = setup(&env);
+    let user = Address::generate(&env);
+    let zkp_hash = BytesN::from_array(&env, &[2u8; 32]);
+    let proof_id = c.submit_zkp(&user, &s(&env, "1,2,3"), &zkp_hash);
+    c.verify_zkp(&admin, &proof_id, &BytesN::from_array(&env, &[1u8; 64]));
 }
 
 #[test]
